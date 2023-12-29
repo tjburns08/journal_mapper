@@ -79,11 +79,14 @@ def filter_entries(cutoff_year, paragraphs, paragraph_details):
 # Function to create a dropdown for year selection
 def create_year_dropdown(paragraph_details):
     years = sorted({detail['year'] for detail in paragraph_details if detail['year'] is not None})
+    all_years_option = [{'label': 'All Years', 'value': 'all'}]
+    year_options = all_years_option + [{'label': year, 'value': year} for year in years]
     return dcc.Dropdown(
         id='year-dropdown',
-        options=[{'label': year, 'value': year} for year in years],
-        value=years[-1]  # Default to the most recent year
+        options=year_options,
+        value='all'  # Default to 'All Years'
     )
+
 
 # Load and process the data
 org_file_path = '/Users/tylerburns/Desktop/org/org_osj/lifetime_osj.org'  # Update with your file path
@@ -137,14 +140,19 @@ def update_plot(n_clicks, selected_year, search_value):
         print("Paragraph to index mapping file not found.")
         return go.Figure()
 
-    # Filter paragraphs and details for the selected year
-    filtered_paragraphs, filtered_details = filter_entries(selected_year, paragraphs, paragraph_details)
+    # Handle "All Years" option
+    if selected_year == 'all':
+        filtered_paragraphs = paragraphs
+        filtered_details = paragraph_details
+    else:
+        # Filter paragraphs and details for the selected year
+        filtered_paragraphs, filtered_details = filter_entries(selected_year, paragraphs, paragraph_details)
 
     # Get indices of the filtered paragraphs using the mapping
     filtered_indices = [paragraph_to_index[p] for p in filtered_paragraphs if p in paragraph_to_index]
 
     # Filter UMAP embeddings based on these indices
-    filtered_umap_embeddings = umap_embeddings[filtered_indices]    
+    filtered_umap_embeddings = umap_embeddings[filtered_indices]  
 
     # Create truncated text for tooltips
     truncated_filtered_paragraphs = [truncate(p, length=100) for p in filtered_paragraphs]
@@ -156,7 +164,7 @@ def update_plot(n_clicks, selected_year, search_value):
     else:
         marker_colors = ['rgba(0,0,255,1)' for _ in filtered_paragraphs]
 
-    # Generate the UMAP plot with only the filtered data
+    # Generate the UMAP plot with only the filtered data and fixed axis ranges
     return {
         'data': [
             go.Scatter(
@@ -170,11 +178,12 @@ def update_plot(n_clicks, selected_year, search_value):
         ],
         'layout': go.Layout(
             title='Journal Entries Visualization',
-            xaxis_title='UMAP Dimension 1',
-            yaxis_title='UMAP Dimension 2',
+            xaxis={'title': 'UMAP Dimension 1', 'range': [2, 14]},
+            yaxis={'title': 'UMAP Dimension 2', 'range': [-4, 10]},
             hovermode='closest'
         )
     }
+
 
 # Callback to update text-output div with full text and date-time details
 @app.callback(
@@ -182,19 +191,26 @@ def update_plot(n_clicks, selected_year, search_value):
     [Input('umap-plot', 'clickData'), Input('year-dropdown', 'value')]
 )
 def display_click_data(clickData, selected_year):
-    filtered_paragraphs, filtered_details = filter_entries(selected_year, paragraphs, paragraph_details)
+    # Handle "All Years" option
+    if selected_year == 'all':
+        current_paragraphs = paragraphs
+        current_details = paragraph_details
+    else:
+        # Filter paragraphs and details for the selected year
+        current_paragraphs, current_details = filter_entries(selected_year, paragraphs, paragraph_details)
 
     if clickData is None:
         return 'Click on a point to display its text here.'
     else:
         point_index = clickData['points'][0]['pointIndex']
-        if point_index < len(filtered_paragraphs):
-            detail = filtered_details[point_index]
-            full_text = filtered_paragraphs[point_index]
+        if point_index < len(current_paragraphs):
+            detail = current_details[point_index]
+            full_text = current_paragraphs[point_index]
             date_time_info = f"{detail['year']}, {detail['day']}, {detail['time']}"
             return f"Date: {date_time_info}\nText: {full_text}"
         else:
             return 'No data for selected point.'
+
 
 # Run the app
 app.run_server(debug=True)
