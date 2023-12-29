@@ -1,0 +1,198 @@
+import re
+import dash
+from dash import html, dcc, Input, Output
+from sentence_transformers import SentenceTransformer
+import umap
+import plotly.graph_objects as go
+import os
+import numpy as np
+
+# Load the BERT model
+model = SentenceTransformer('all-mpnet-base-v2')
+
+# Function to read and process the org file
+def read_org_file(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        content = file.readlines()
+
+    year, day, time = None, None, None
+    paragraphs = []
+    paragraph_details = []  # To store details like year, day, and time
+
+    for line in content:
+        line = line.strip()
+        if line.startswith('**** '):
+            time = line.strip('* ')
+        elif line.startswith('*** '):
+            day = line.strip('* ')
+        elif line.startswith('* 20'):
+            year = line.strip('* ')
+        elif line and not line.isspace():  # Check if line is a non-empty paragraph
+            paragraphs.append(line)
+            paragraph_details.append({'year': year, 'day': day, 'time': time})
+    return paragraphs, paragraph_details
+
+# Embedding paragraphs
+def embed_paragraphs(paragraphs, embeddings_file='embeddings.npy'):
+    # Check if embeddings file exists
+    if os.path.exists(embeddings_file):
+        print("Loading embeddings from file...")
+        # Load embeddings
+        embeddings = np.load(embeddings_file, allow_pickle=True)
+    else:
+        print("Embedding paragraphs...")
+        # Compute embeddings
+        embeddings = model.encode(paragraphs, show_progress_bar=True)
+        # Save embeddings
+        np.save(embeddings_file, embeddings)
+
+    return embeddings
+
+# Apply UMAP (original function)
+def apply_umap(embeddings):
+    umap_reducer = umap.UMAP(n_neighbors=15, n_components=2, min_dist=0.1, metric='cosine')
+    umap_embeddings = umap_reducer.fit_transform(embeddings)
+    return umap_embeddings
+
+# Apply and save UMAP
+def compute_and_save_umap_embeddings(embeddings, umap_file='umap_embeddings.npy'):
+    print("Applying UMAP...")
+    umap_reducer = umap.UMAP(n_neighbors=15, n_components=2, min_dist=0.1, metric='cosine')
+    umap_embeddings = umap_reducer.fit_transform(embeddings)
+    np.save(umap_file, umap_embeddings)
+    return umap_embeddings
+
+# Function to truncate text to a specified length
+def truncate(text, length=100):
+    return text if len(text) <= length else text[:length] + '...'
+
+# Function to filter entries after a specified year
+def filter_entries(cutoff_year, paragraphs, paragraph_details):
+    filtered_paragraphs = []
+    filtered_details = []
+    for i, detail in enumerate(paragraph_details):
+        if detail['year'] is not None and int(detail['year']) >= int(cutoff_year):  # Check for None and convert year to int for comparison
+            filtered_paragraphs.append(paragraphs[i])
+            filtered_details.append(detail)
+    return filtered_paragraphs, filtered_details
+
+# Function to create a dropdown for year selection
+def create_year_dropdown(paragraph_details):
+    years = sorted({detail['year'] for detail in paragraph_details if detail['year'] is not None})
+    return dcc.Dropdown(
+        id='year-dropdown',
+        options=[{'label': year, 'value': year} for year in years],
+        value=years[-1]  # Default to the most recent year
+    )
+
+# Main function
+def main():
+    org_file_path = '/Users/tylerburns/Desktop/org/org_osj/lifetime_osj.org'  # Update with your file path
+    paragraphs, paragraph_details = read_org_file(org_file_path)
+
+    # Initialize the Dash app
+    app = dash.Dash(__name__)
+
+    # Do the embedding
+    # Call this function after computing the embeddings for all paragraphs
+    all_embeddings = embed_paragraphs(paragraphs)
+    umap_embeddings = compute_and_save_umap_embeddings(all_embeddings)
+
+    # Create year dropdown
+    year_dropdown = create_year_dropdown(paragraph_details)
+
+    # App layout
+    app.layout = html.Div([
+        html.Div([
+            html.Label('Select Year:'),
+            year_dropdown
+        ]),
+        html.Div([
+            dcc.Input(id='search-input', type='text', placeholder='Search text...'),
+            html.Button('Search', id='search-button'),
+        ]),
+        dcc.Graph(id='umap-plot'),
+        html.Div(id='text-output', style={'white-space': 'pre-wrap', 'word-wrap': 'break-word'})
+    ])
+
+    # Callback to update UMAP plot based on search input and selected year
+    @app.callback(
+        Output('umap-plot', 'figure'),
+        [Input('search-button', 'n_clicks'), Input('year-dropdown', 'value')],
+        [dash.dependencies.State('search-input', 'value')]
+    )
+    def update_plot(n_clicks, selected_year, search_value):
+        # Ensure UMAP embeddings file exists
+        if not os.path.exists('umap_embeddings.npy'):
+            print("UMAP embeddings file not found. Please compute UMAP embeddings first.")
+            return go.Figure()
+
+        # Load UMAP embeddings
+        umap_embeddings = np.load('umap_embeddings.npy')
+
+        # Filter paragraphs and details for the selected year
+        filtered_paragraphs, filtered_details = filter_entries(selected_year, paragraphs, paragraph_details)
+
+        # Get indices of the filtered paragraphs
+        filtered_indices = [paragraphs.index(p) for p in filtered_paragraphs]
+
+        # Filter UMAP embeddings based on these indices
+        filtered_umap_embeddings = umap_embeddings[filtered_indices]
+
+        # Create truncated text for tooltips
+        truncated_filtered_paragraphs = [truncate(p, length=100) for p in filtered_paragraphs]
+
+        # Highlight search results if search_value is provided
+        if search_value:
+            matched_indices = [i for i, text in enumerate(filtered_paragraphs) if search_value.lower() in text.lower()]
+            marker_colors = ['rgba(200,200,200,0.5)' if i not in matched_indices else 'rgba(0,255,0,1)' for i in range(len(filtered_paragraphs))]
+        else:
+            marker_colors = ['rgba(0,0,255,1)' for _ in filtered_paragraphs]
+
+        # Generate the UMAP plot with only the filtered data
+        return {
+            'data': [
+                go.Scatter(
+                    x=filtered_umap_embeddings[:, 0],
+                    y=filtered_umap_embeddings[:, 1],
+                    mode='markers',
+                    text=truncated_filtered_paragraphs,
+                    hoverinfo='text',
+                    marker=dict(size=7, color=marker_colors, opacity=0.8)
+                )
+            ],
+            'layout': go.Layout(
+                title='Journal Entries Visualization',
+                xaxis_title='UMAP Dimension 1',
+                yaxis_title='UMAP Dimension 2',
+                hovermode='closest'
+            )
+        }
+
+    # Callback to update text-output div with full text and date-time details
+    @app.callback(
+        Output('text-output', 'children'),
+        [Input('umap-plot', 'clickData'), Input('year-dropdown', 'value')]
+    )
+    def display_click_data(clickData, selected_year):
+        filtered_paragraphs, filtered_details = filter_entries(selected_year, paragraphs, paragraph_details)
+
+        if clickData is None:
+            return 'Click on a point to display its text here.'
+        else:
+            point_index = clickData['points'][0]['pointIndex']
+            if point_index < len(filtered_paragraphs):
+                detail = filtered_details[point_index]
+                full_text = filtered_paragraphs[point_index]
+                date_time_info = f"{detail['year']}, {detail['day']}, {detail['time']}"
+                return f"Date: {date_time_info}\nText: {full_text}"
+            else:
+                return 'No data for selected point.'
+
+    # Run the app
+    app.run_server(debug=False)
+
+if __name__ == "__main__":
+    main()
+
+
