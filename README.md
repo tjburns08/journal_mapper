@@ -10,19 +10,19 @@ A more in-depth writeup of this project can be found [here](https://tjburns08.gi
 
 To use the scripts as they are, the journal must be an org mode file (this can be modified to be plain text or any other format if you don't use org mode). The file must have the following bullet point format:
 
-`* Year`
-`*** Date`
-`**** Time`
-Journal entry goes here.
+`* Year`\
+`*** Date`\
+`**** Time`\
+Journal entry goes here.\
 
 To make this explicit:
 
-`* 2023`
-`*** July 4`
-`**** 10:22pm`
-Journal entry paragraph 1...
+`* 2023`\
+`*** July 4`\
+`**** 10:22pm`\
+Journal entry paragraph 1...\
 
-Journal entry paragraph 2...
+Journal entry paragraph 2...\
 
 The time does not need to be of any particular format. Any string will do. For a given entry, paragraphs must be individual lines, separated by an empty line, as shown above.
 
