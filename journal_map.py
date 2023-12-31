@@ -212,7 +212,8 @@ def display_click_data(clickData, selected_year):
 
 
 # Run the app
-app.run_server(debug=True)
+if __name__ == '__main__':
+    app.run_server(debug=True)
 
 
 
