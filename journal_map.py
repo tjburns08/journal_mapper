@@ -159,7 +159,7 @@ def update_plot(n_clicks, selected_year, search_value):
     # Highlight search results if search_value is provided
     if search_value:
         matched_indices = [i for i, text in enumerate(filtered_paragraphs) if search_value.lower() in text.lower()]
-        marker_colors = ['rgba(200,200,200,0.5)' if i not in matched_indices else 'rgba(0,0,255,1)' for i in range(len(filtered_paragraphs))]
+        marker_colors = ['rgba(200,200,200,0.2)' if i not in matched_indices else 'rgba(0,0,255,1)' for i in range(len(filtered_paragraphs))]
     else:
         marker_colors = ['rgba(0,0,255,1)' for _ in filtered_paragraphs]
 

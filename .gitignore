@@ -7,3 +7,4 @@ images/
 config.txt
 tech_enabled_journaling.org
 .DS_Store
+update_site.sh
