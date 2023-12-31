@@ -7,8 +7,15 @@ import plotly.graph_objects as go
 import os
 import numpy as np
 
+def read_config(file_path):
+    with open(file_path, 'r') as file:
+        return file.read().strip()
+    
+# User input
+org_file_path = read_config('config.txt') # Get rid of read_config function and replace with 'your_file_path'
+
 # Load the BERT model
-model = SentenceTransformer('all-mpnet-base-v2')
+model = SentenceTransformer('all-mpnet-base-v2') 
 
 # Function to read and process the org file
 def read_org_file(file_path):
@@ -81,9 +88,7 @@ def create_year_dropdown(paragraph_details):
         value='all'  # Default to 'All Years'
     )
 
-
 # Load and process the data
-org_file_path = '/Users/tylerburns/Desktop/org/org_osj/lifetime_osj.org'  # Update with your file path
 paragraphs, paragraph_details = read_org_file(org_file_path)
 
 # Compute or load embeddings

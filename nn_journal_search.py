@@ -5,8 +5,20 @@ import numpy as np
 import os
 from sklearn.metrics.pairwise import cosine_similarity
 
+def read_config(file_path):
+    with open(file_path, 'r') as file:
+        return file.read().strip()
+    
+# User input
+org_file_path = read_config('config.txt') # Get rid of read_config function and replace with 'your_file_path'
+
 # Load the BERT model
 model = SentenceTransformer('all-mpnet-base-v2')
+
+# Don't worry about this. 
+def read_config(file_path):
+    with open(file_path, 'r') as file:
+        return file.read().strip()
 
 # Function to read and process the org file
 def read_org_file(file_path):
@@ -79,7 +91,6 @@ app.layout = html.Div([
 ])
 
 # Load and process the data
-org_file_path = '/Users/tylerburns/Desktop/org/org_osj/lifetime_osj.org'
 paragraphs, paragraph_details = read_org_file(org_file_path)
 
 # Compute or load embeddings
