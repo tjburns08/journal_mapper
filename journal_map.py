@@ -6,6 +6,7 @@ import umap
 import plotly.graph_objects as go
 import os
 import numpy as np
+from sklearn.neighbors import NearestNeighbors
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -54,6 +55,23 @@ def embed_paragraphs(paragraphs, embeddings_file='embeddings.npy'):
         np.save(embeddings_file, embeddings)
 
     return embeddings
+
+# Calculate a KNN density estimate of the embeddings
+def compute_knn_density(embeddings, k=5):
+    # Create a k-NN model and fit it
+    nn = NearestNeighbors(n_neighbors=k)
+    nn.fit(embeddings)
+
+    # Find distances and indices of k-neighborhood
+    distances, indices = nn.kneighbors(embeddings)
+
+    # Compute density (you can modify this calculation as needed)
+    density = 1 / np.mean(distances, axis=1)
+
+    # Normalize density for coloring
+    normalized_density = (density - np.min(density)) / (np.max(density) - np.min(density))
+    return normalized_density
+
 
 # Apply and save UMAP
 def compute_and_save_umap_embeddings(embeddings, umap_file='umap_embeddings.npy'):
