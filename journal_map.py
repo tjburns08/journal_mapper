@@ -4,9 +4,11 @@ from dash import html, dcc, Input, Output
 from sentence_transformers import SentenceTransformer
 import umap
 import plotly.graph_objects as go
+import plotly.express as px
 import os
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+from scipy.stats.mstats import winsorize
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -57,7 +59,7 @@ def embed_paragraphs(paragraphs, embeddings_file='embeddings.npy'):
     return embeddings
 
 # Calculate a KNN density estimate of the embeddings
-def compute_knn_density(embeddings, k=5):
+def compute_knn_density(embeddings, k=200, epsilon=1e-5):
     # Create a k-NN model and fit it
     nn = NearestNeighbors(n_neighbors=k)
     nn.fit(embeddings)
@@ -66,10 +68,15 @@ def compute_knn_density(embeddings, k=5):
     distances, indices = nn.kneighbors(embeddings)
 
     # Compute density (you can modify this calculation as needed)
-    density = 1 / np.mean(distances, axis=1)
+    density = 1 / (np.mean(distances, axis=1) + epsilon)
+
+    # Get rid of extremes
+    lower_bound, upper_bound = np.percentile(density, [5, 90])
+    density = np.clip(density, lower_bound, upper_bound)
 
     # Normalize density for coloring
     normalized_density = (density - np.min(density)) / (np.max(density) - np.min(density))
+
     return normalized_density
 
 
@@ -140,16 +147,27 @@ app.layout = html.Div([
         dcc.Input(id='search-input', type='text', placeholder='Search text...'),
         html.Button('Search', id='search-button'),
     ]),
+    html.Div([
+        dcc.Checklist(
+            id='density-checklist',
+            options=[
+                {'label': 'Color by kNN Density', 'value': 'KNN'}
+            ],
+            value=[]
+        ),
+    ]),
     dcc.Graph(id='umap-plot'),
-    html.Div(id='text-output', style={'white-space': 'pre-wrap', 'word-wrap': 'break-word'})
+    html.Div(id='text-output', style={'white-space': 'pre-wrap', 'word-wrap': 'break-word'}),
 ])
 
 @app.callback(
     Output('umap-plot', 'figure'),
-    [Input('search-button', 'n_clicks'), Input('year-dropdown', 'value')],
+    [Input('search-button', 'n_clicks'), 
+     Input('year-dropdown', 'value'), 
+     Input('density-checklist', 'value')],
     [dash.dependencies.State('search-input', 'value')]
 )
-def update_plot(n_clicks, selected_year, search_value):
+def update_plot(n_clicks, selected_year, checklist_values, search_value):
     # Load paragraph to index mapping
     if os.path.exists('paragraph_to_index.npy'):
         paragraph_to_index = np.load('paragraph_to_index.npy', allow_pickle=True).item()
@@ -174,13 +192,32 @@ def update_plot(n_clicks, selected_year, search_value):
     # Create truncated text for tooltips
     truncated_filtered_paragraphs = [truncate(p, length=100) for p in filtered_paragraphs]
 
-    # Highlight search results if search_value is provided
+    # Base color determined by search presence
     if search_value:
         matched_indices = [i for i, text in enumerate(filtered_paragraphs) if search_value.lower() in text.lower()]
-        marker_colors = ['rgba(200,200,200,0.2)' if i not in matched_indices else 'rgba(0,0,255,1)' for i in range(len(filtered_paragraphs))]
+        base_colors = ['rgba(200,200,200,0.2)' if i not in matched_indices else 'rgba(0,0,255,1)' for i in range(len(filtered_paragraphs))]
     else:
-        marker_colors = ['rgba(0,0,255,1)' for _ in filtered_paragraphs]
+        base_colors = ['rgba(0,0,255,1)' for _ in filtered_paragraphs]
 
+    # Apply kNN density-based coloring if checkbox is checked
+    color_by_density = "KNN" in checklist_values
+    if color_by_density:
+        # Load or compute kNN density, then apply coloring
+        density_file = 'density.npy'
+        if os.path.exists(density_file):
+            print("Loading density values from file...")
+            knn_density = np.load(density_file)
+        else:
+            print("Computing kNN density values...")
+            knn_density = compute_knn_density(all_embeddings)
+            np.save(density_file, knn_density)
+
+        color_scale = px.colors.sequential.Plasma
+        density_colors = [color_scale[int(value * (len(color_scale) - 1))] for value in knn_density[filtered_indices]]
+        marker_colors = density_colors
+    else:
+        marker_colors = base_colors
+    
     # Generate the UMAP plot with only the filtered data and fixed axis ranges
     return {
         'data': [
