@@ -7,10 +7,17 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
-        return file.read().strip()
-    
-# User input
-org_file_path = read_config('data/config.txt') # Get rid of read_config function and replace with 'your_file_path'
+        return file.read().splitlines()
+
+def select_org_file(org_files):
+    for i, file in enumerate(org_files):
+        print(f"{i + 1}: {file}")
+    choice = int(input("Select an org file by number: ")) - 1
+    return org_files[choice]
+
+org_files = read_config('data/config.txt')
+org_file_path = select_org_file(org_files)
+print(f"Selected Org File: {org_file_path}")
 
 # Load the BERT model
 model = SentenceTransformer('all-mpnet-base-v2')
@@ -31,6 +38,8 @@ def read_org_file(file_path):
 
     for line in content:
         line = line.strip()
+        if line.startswith("#+") or line.startswith("[["):
+            continue
         if line.startswith('**** '):
             time = line.strip('* ')
         elif line.startswith('*** '):
@@ -117,4 +126,4 @@ def perform_search(n_clicks, search_value):
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)

@@ -12,10 +12,20 @@ from scipy.stats.mstats import winsorize
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
-        return file.read().strip()
+        return file.read().splitlines()
+
+def select_org_file(org_files):
+    for i, file in enumerate(org_files):
+        print(f"{i + 1}: {file}")
+    choice = int(input("Select an org file by number: ")) - 1
+    return org_files[choice]
+
+org_files = read_config('data/config.txt')
+org_file_path = select_org_file(org_files)
+print(f"Selected Org File: {org_file_path}")
     
 # User input
-org_file_path = read_config('data/config.txt') # Get rid of read_config function and replace with 'your_file_path'
+# org_file_path = read_config('data/config.txt') # Get rid of read_config function and replace with 'your_file_path'
 
 # Load the BERT model
 model = SentenceTransformer('all-mpnet-base-v2') 
@@ -31,6 +41,8 @@ def read_org_file(file_path):
 
     for line in content:
         line = line.strip()
+        if line.startswith("#+") or line.startswith("[["):
+            continue
         if line.startswith('**** '):
             time = line.strip('* ')
         elif line.startswith('*** '):
@@ -124,7 +136,7 @@ paragraph_to_index = {p: i for i, p in enumerate(paragraphs)}
 np.save('data/paragraph_to_index.npy', paragraph_to_index)
 
 # Compute or load UMAP embeddings
-umap_file = 'umap_embeddings.npy'
+umap_file = 'data/umap_embeddings.npy'
 if not os.path.exists(umap_file):
     umap_embeddings = compute_and_save_umap_embeddings(all_embeddings, umap_file)
 else:
@@ -232,8 +244,8 @@ def update_plot(n_clicks, selected_year, checklist_values, search_value):
         ],
         'layout': go.Layout(
             title='Journal Entries Visualization',
-            xaxis={'title': 'UMAP Dimension 1', 'range': [2, 14]},
-            yaxis={'title': 'UMAP Dimension 2', 'range': [-4, 10]},
+            # xaxis={'title': 'UMAP Dimension 1', 'range': [2, 14]},
+            # yaxis={'title': 'UMAP Dimension 2', 'range': [-4, 10]},
             hovermode='closest'
         )
     }
@@ -268,7 +280,7 @@ def display_click_data(clickData, selected_year):
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
 
 
 
