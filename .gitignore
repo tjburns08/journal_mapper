@@ -2,22 +2,13 @@
 .jm2_venv/
 
 # Intermediate files from running the scripts
-data/embeddings.npy
-data/umap_embeddings.npy
-data/paragraph_to_index.npy
-data/density.npy
-data/state_for_article/
-
-# Specific to the user's environment. You'll have to create one as well.
-data/config.txt
+data/
 
 # Specific to my write-up on the project
-doc/tech_enabled_journaling.org
-doc/slides_for_article.pptx
-doc/images/
+doc/
 
-# Scripts (contains sensitive information or specific to development environment)
-scripts/update_site.sh
+# Spcific to the write-up
+scripts/
 
 # System-specific files (macOS directory attributes)
 .DS_Store
