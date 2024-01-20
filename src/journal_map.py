@@ -121,7 +121,7 @@ all_embeddings = embed_paragraphs(paragraphs)
 
 # Create a mapping from paragraphs to their indices
 paragraph_to_index = {p: i for i, p in enumerate(paragraphs)}
-np.save('paragraph_to_index.npy', paragraph_to_index)
+np.save('data/paragraph_to_index.npy', paragraph_to_index)
 
 # Compute or load UMAP embeddings
 umap_file = 'umap_embeddings.npy'
