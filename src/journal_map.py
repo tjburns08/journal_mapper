@@ -8,7 +8,6 @@ import plotly.express as px
 import os
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
-from scipy.stats.mstats import winsorize
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
